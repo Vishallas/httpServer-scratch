@@ -30,7 +30,7 @@ class httpRequest:
         self.method = None        
         self.uri = None
         self.http_version='1.1'
-        self.mimi_sub = None
+        self.mime_sub = None
         self.parse(data)
 
     def parse(self, data):
@@ -40,14 +40,14 @@ class httpRequest:
         
         if (len(line_data)>1):
             self.uri = line_data[1].decode()
-        
+            self.mime_sub = 'text/'+self.uri.split('.')[-1]
+            
         if (len(line_data)>2):
             self.http_version = line_data[2].decode() 
 
 class httpServer(tcpServer):
     Header = {
         'server': 'Scratch_Server',
-        'Content-Type': 'text/html',
     }
     
     Status_codes={
@@ -55,10 +55,9 @@ class httpServer(tcpServer):
         404: 'Not Found',
         501: 'Not Implemented',
     }
-
+    
     def handle_request(self, data):
         request = httpRequest(data)
-
         try:
             # print(request.method, type(request.method))
             handler = getattr(self, 'handle_%s'% request.method)
@@ -70,17 +69,10 @@ class httpServer(tcpServer):
 
     def handle_GET(self,request):
         uri = 'templates/%s' % request.uri.strip('/')
-        
-        # find out a file's MIME type
-        # if nothing is found, just send `text/html`
-        content_type = mimetypes.guess_type(uri)[0] or 'text/html'
-        extra_headers = {'Content-Type': content_type}
-        response_headers = self.response_header(extra_headers)
-
 
         if os.path.exists(uri):
             response_line = self.response_line(200, request.http_version)
-            response_headers = self.response_header()
+            response_headers = self.response_header(content_type=request.mime_sub)
             with open(uri, 'rb') as body:
                 response_body = body.read()
         else:
@@ -100,8 +92,9 @@ class httpServer(tcpServer):
         line = '%s %s %s\r\n' % (http_version, status_code,reason)
         return line.encode()
     
-    def response_header(self, extra_header=None):
+    def response_header(self, extra_header=None, content_type='text/html'):
         header_copy = self.Header.copy()
+        header_copy['Content-Type'] = content_type
         if extra_header:
             header_copy.update(extra_header)
         header = ''
