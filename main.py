@@ -1,5 +1,6 @@
 import socket
 import os
+import mimetypes
 
 class tcpServer:
     def __init__(self,host='127.0.0.1', port=8888):
@@ -29,7 +30,7 @@ class httpRequest:
         self.method = None        
         self.uri = None
         self.http_version='1.1'
-
+        self.mimi_sub = None
         self.parse(data)
 
     def parse(self, data):
@@ -68,7 +69,15 @@ class httpServer(tcpServer):
         return response
 
     def handle_GET(self,request):
-        uri = 'templates/%s.html' % request.uri.strip('/')
+        uri = 'templates/%s' % request.uri.strip('/')
+        
+        # find out a file's MIME type
+        # if nothing is found, just send `text/html`
+        content_type = mimetypes.guess_type(uri)[0] or 'text/html'
+        extra_headers = {'Content-Type': content_type}
+        response_headers = self.response_header(extra_headers)
+
+
         if os.path.exists(uri):
             response_line = self.response_line(200, request.http_version)
             response_headers = self.response_header()
